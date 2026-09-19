@@ -5,12 +5,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PaneLifecycleContext, PaneVisibleContext } from '@/components/pane-shell/pane-visibility'
 import { rescopeConnectionScopedStores } from '@/lib/connection-scoped'
 import { setActiveProfile } from '@/store/profile'
+import { $activeSessionId } from '@/store/session'
 import {
   getThreadScrollPosition,
+  requestScrollToApproval,
   requestScrollToBottom,
   saveThreadScrollPosition,
   threadScrollStorageKey
 } from '@/store/thread-scroll'
+import { clearAllPrompts, setApprovalRequest } from '@/store/prompts'
 
 import { stubThreadEnvironment, stubThreadViewportSize } from '../test-utils'
 
@@ -599,6 +602,83 @@ describe('list session-scroll restore', () => {
     await settleScroll(20)
     expect(viewportEl(container).scrollTop).toBe(12000 - CLIENT_H - 9000)
     expect(expandWindow).toHaveBeenCalledTimes(1)
+  })
+
+  it('scrolls the real pending approval card into view', async () => {
+    const sessionId = 'approval-scroll'
+    const requestId = 'approval-1'
+
+    $activeSessionId.set(sessionId)
+
+    const { container } = render(
+      <ScrollHarness
+        messages={sessionMessages('approval')}
+        sessionId={sessionId}
+        sessionKey="approval"
+      />
+    )
+
+    const viewport = viewportEl(container)
+
+    act(() => {
+      viewport.scrollTop = 0
+      setApprovalRequest({
+        command: 'rm -rf /tmp/x',
+        description: 'dangerous command',
+        requestId,
+        sessionId
+      })
+    })
+
+    const approval = await waitFor(() => {
+      const element = container.querySelector<HTMLElement>(
+        `[data-request-id="${requestId}"]`
+      )
+      expect(element).toBeTruthy()
+      return element!
+    })
+
+    await settleScroll()
+
+    act(() => {
+      viewport.scrollTop = 0
+      viewport.dispatchEvent(new Event('scroll'))
+    })
+
+    vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue({
+      bottom: CLIENT_H,
+      height: CLIENT_H,
+      left: 0,
+      right: 800,
+      top: 0,
+      width: 800,
+      x: 0,
+      y: 0,
+      toJSON: () => {}
+    })
+
+    vi.spyOn(approval, 'getBoundingClientRect').mockReturnValue({
+      bottom: 1900,
+      height: 100,
+      left: 0,
+      right: 800,
+      top: 1800,
+      width: 800,
+      x: 0,
+      y: 1800,
+      toJSON: () => {}
+    })
+
+    act(() => {
+      requestScrollToApproval(sessionId, requestId)
+    })
+
+    await settleScroll()
+
+    expect(viewport.scrollTop).toBe(1550)
+
+    clearAllPrompts()
+    $activeSessionId.set(null)
   })
 
   it('spends pages to regrow toward a saved offset the mounted window cannot cover', async () => {

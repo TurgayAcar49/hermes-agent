@@ -4,9 +4,11 @@ import {
   $threadJumpButtonVisibleBySession,
   $threadMessagesBelowBySession,
   $threadScrolledUpBySession,
+  onScrollToApprovalRequest,
   onScrollToBottomRequest,
   publishThreadAtBottom,
   publishThreadMessagesBelow,
+  requestScrollToApproval,
   requestScrollToBottom,
   resetPublishedThreadScroll,
   resetThreadScroll,
@@ -127,6 +129,40 @@ describe('requestScrollToBottom', () => {
 
     expect(first).not.toHaveBeenCalled()
     expect(second).toHaveBeenCalledOnce()
+    stopSecond()
+  })
+})
+
+describe('requestScrollToApproval', () => {
+  it('routes the approval request only to its session and preserves the request id', () => {
+    const sessionA = vi.fn()
+    const sessionB = vi.fn()
+    const stopA = onScrollToApprovalRequest(sessionA, 'session-a')
+    const stopB = onScrollToApprovalRequest(sessionB, 'session-b')
+
+    requestScrollToApproval('session-b', 'approval-42')
+
+    expect(sessionA).not.toHaveBeenCalled()
+    expect(sessionB).toHaveBeenCalledWith('approval-42')
+    expect(sessionB).toHaveBeenCalledOnce()
+
+    stopA()
+    stopB()
+  })
+
+  it("does not let a late unmount clear a newer session's handler", () => {
+    const first = vi.fn()
+    const second = vi.fn()
+    const stopFirst = onScrollToApprovalRequest(first, 'session-a')
+    const stopSecond = onScrollToApprovalRequest(second, 'session-a')
+
+    stopFirst()
+    requestScrollToApproval('session-a', 'approval-42')
+
+    expect(first).not.toHaveBeenCalled()
+    expect(second).toHaveBeenCalledWith('approval-42')
+    expect(second).toHaveBeenCalledOnce()
+
     stopSecond()
   })
 })

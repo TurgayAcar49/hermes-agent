@@ -107,6 +107,32 @@ export const onScrollToBottomRequest = (handler: () => void, sessionId: string |
 export const requestScrollToBottom = (sessionId: string | null = null) => {
   handlers.get(sessionId)?.forEach(handler => handler())
 }
+const approvalHandlers = new Map<string | null, Set<(requestId: string) => void>>()
+
+export const onScrollToApprovalRequest = (
+  handler: (requestId: string) => void,
+  sessionId: string | null = null
+) => {
+  const scoped = approvalHandlers.get(sessionId) ?? new Set<(requestId: string) => void>()
+
+  scoped.add(handler)
+  approvalHandlers.set(sessionId, scoped)
+
+  return () => {
+    scoped.delete(handler)
+
+    if (scoped.size === 0) {
+      approvalHandlers.delete(sessionId)
+    }
+  }
+}
+
+export const requestScrollToApproval = (
+  sessionId: string | null,
+  requestId: string
+) => {
+  approvalHandlers.get(sessionId)?.forEach(handler => handler(requestId))
+}
 
 // Inline edit grows a sticky human bubble. Fire on pointerdown so the viewport
 // escapes stick-to-bottom before focus/layout; close clears the edit flag when

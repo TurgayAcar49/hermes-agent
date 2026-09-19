@@ -13,6 +13,7 @@ import { sessionApprovalRequest } from '@/store/prompts'
 import {
   $threadJumpButtonVisibleBySession,
   $threadMessagesBelowBySession,
+  requestScrollToApproval,
   requestScrollToBottom
 } from '@/store/thread-scroll'
 
@@ -86,7 +87,12 @@ export function ScrollToBottomButton({ sessionId }: { sessionId: string | null }
       data-state={state}
       onClick={() => {
         triggerHaptic('selection')
-        requestScrollToBottom(scrollSessionId)
+
+        if (visibleApproval && request?.requestId) {
+          requestScrollToApproval(scrollSessionId, request.requestId)
+        } else {
+          requestScrollToBottom(scrollSessionId)
+        }
       }}
       style={{
         bottom: 'calc(var(--composer-measured-height) + 1rem)'

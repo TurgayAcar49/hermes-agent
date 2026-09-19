@@ -24,6 +24,7 @@ import { messagePaintWeight } from '@/lib/render-weight'
 import { cn } from '@/lib/utils'
 import {
   getThreadScrollPosition,
+  onScrollToApprovalRequest,
   onScrollToBottomRequest,
   onThreadEditClose,
   onThreadEditOpen,
@@ -691,6 +692,43 @@ const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
         }
       }, scrollSessionId),
     [scrollToBottom, scrollSessionId, isHistorical, returnToLatest]
+  )
+
+  // Floating jump button → navigate to the specific pending approval.
+  useEffect(
+    () =>
+      onScrollToApprovalRequest(requestId => {
+        const el = scrollRef.current
+        const content = contentRef.current
+
+        if (!el || !content) {
+          return
+        }
+
+        const approval = content.querySelector<HTMLElement>(
+          `[data-request-id="${CSS.escape(requestId)}"]`
+        )
+
+        if (!approval) {
+          return
+        }
+
+        stopScroll()
+
+        const viewportRect = el.getBoundingClientRect()
+        const approvalRect = approval.getBoundingClientRect()
+        const approvalTop = el.scrollTop + (approvalRect.top - viewportRect.top)
+        const targetTop = Math.max(
+          0,
+          approvalTop - (el.clientHeight - approvalRect.height) / 2
+        )
+
+        el.scrollTop = Math.min(
+          targetTop,
+          Math.max(0, el.scrollHeight - el.clientHeight)
+        )
+      }, scrollSessionId),
+    [contentRef, scrollRef, scrollSessionId, stopScroll]
   )
 
   // Waking from display: hidden (HUD mode hides the main window; OS hide does

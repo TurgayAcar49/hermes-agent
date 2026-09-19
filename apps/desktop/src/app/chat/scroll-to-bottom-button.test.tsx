@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clearAllPrompts, clearApprovalRequest, setApprovalRequest } from '@/store/prompts'
 import { $activeSessionId } from '@/store/session'
 import {
+  onScrollToApprovalRequest,
   onScrollToBottomRequest,
   publishThreadMessagesBelow,
   resetThreadScroll,
@@ -132,7 +133,32 @@ describe('ScrollToBottomButton', () => {
     view.rerender(<ScrollToBottomButton sessionId="sess-1" />)
     expect(screen.getByRole('button', { name: 'Approval needed' })).toBeTruthy()
   })
+    it('routes Approval needed clicks to the pending approval instead of the bottom', () => {
+    $activeSessionId.set('sess-1')
+    setApprovalRequest({
+      command: 'rm -rf /tmp/x',
+      description: 'dangerous command',
+      requestId: 'approval-42',
+      sessionId: 'sess-1'
+    })
+    setThreadAtBottom(false, 'sess-1')
 
+    const approvalHandler = vi.fn()
+    const bottomHandler = vi.fn()
+    const stopApproval = onScrollToApprovalRequest(approvalHandler, 'sess-1')
+    const stopBottom = onScrollToBottomRequest(bottomHandler, 'sess-1')
+
+    render(<ScrollToBottomButton sessionId="sess-1" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approval needed' }))
+
+    expect(approvalHandler).toHaveBeenCalledOnce()
+    expect(approvalHandler).toHaveBeenCalledWith('approval-42')
+    expect(bottomHandler).not.toHaveBeenCalled()
+
+    stopApproval()
+    stopBottom()
+  })
   it('re-arms sticky-bottom on click', () => {
     const handler = vi.fn()
     const stop = onScrollToBottomRequest(handler, 'sess-1')
